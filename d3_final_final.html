@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<title>D3 Final - Map and Lines</title>
+<script src="https://d3js.org/d3.v5.min.js"></script> 
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+crossorigin=""></script>
+
+    <style>
+
+
+      .sensebox{
+        stroke: black; 
+        stroke-width: 1px;
+      }
+
+      .sensebox.hovered{
+
+        fill: grey;
+      }
+
+      .legend {
+        position: absolute; 
+        top: 250px; 
+        left: 10px; 
+        font-style: italic;
+        font-size: 10px; 
+
+      }
+
+      .line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+
+      #infodiv{
+        /*first three attributes: position of the div*/
+        position: absolute;
+        top: 350px;
+        left: 480px;
+        /*Next two attributes: dimensions of the div*/
+        width: 130px;
+        height: 40px;
+        border-radius: 10px; /*rounding of the div*/
+        background: black; /*bakground color of the div*/
+        color: aliceblue; /*color of the text*/
+        text-align: center; /*centering the text*/
+        display: none;  /*hide the div by default*/
+        }
+
+        
+	
+     </style> 
+
+     
+</head>
+
+<body>
+
+<script type="text/javascript">
+
+ 
+ // Map of boxes in the world
+
+    // shapefiles were taken from https://www.naturalearthdata.com/downloads/
+    // the conversion to topjson was done using https://mapshaper.org/
+
+// svg margin parameters
+var margin = {top: 20, right: 20, bottom: 20, left: 20};
+var width = 800 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+var width2 = 500 - margin.left - margin.right,
+    height2 = 400 - margin.top - margin.bottom;
+
+// svg parameters
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .style("background", "#ececec")
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+// parameters of the svg for the bar charts
+var svg2 = d3.select("body").append("svg")
+    .attr("width", width2 + margin.left + margin.right)
+    .attr("height", height2 + margin.top + margin.bottom)
+    .style("background", "white")
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+// div for the information
+var div = d3.select("body").append("div")
+            .attr("id", "infodiv"); 
+
+
+
+// currrent projection
+var currentprojection = d3.geoMercator()
+                      .center([7.622, 51.951])
+                      .scale(50000)
+                      .translate([width/2, height/2]);
+
+// geopath                        
+var geopath = d3.geoPath().projection(currentprojection);
+
+var geopath1 = d3.geoPath().projection(currentprojection);
+
+// format number for human consumption 
+var formatNumber = d3.format(",.0f");
+
+// Labels of the legend are the same as the domain of the color scale
+
+
+d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_nster_stadtteile.json")
+  .then(
+    function(dataset)
+    {
+
+      console.log(dataset); 
+      var city = topojson.feature(dataset, dataset.objects.shapefile_m_nster_stadtteile).features;
+
+      console.log(city);
+      svg.append("path")
+      .datum(topojson.feature(dataset, dataset.objects.shapefile_m_nster_stadtteile))
+      .attr("d", geopath)
+      .attr("class", "sensebox")
+      .attr("fill","green");
+
+});
+
+
+  
+    
+
+   
+   d3.json("https://raw.githubusercontent.com/NJaku01/geoDaten/master/boxes_final.json")
+  .then(
+    function(dataset)
+    {
+
+      console.log(dataset); 
+
+      var boxes = topojson.feature(dataset, dataset.objects.boxes).features;
+      
+      console.log(boxes);
+
+      var centroids = boxes.map(function (feature){
+          return geopath.centroid(feature);
+      });
+
+            
+  d3.csv("https://raw.githubusercontent.com/NJaku01/geoDaten/master/boxes.csv")
+    .then(function(temperaturdataset)
+    { 
+
+      // delimiter for the parser
+      var parser = d3.dsvFormat(",");
+
+      // format the dataset as csv, and then use the parser to return the data elements
+      var tempdataset = parser.parse(d3.csvFormat(temperaturdataset)); 
+  
+
+      // data binding
+      var boxpoints= d3.select("svg").selectAll("path").data(boxes);
+
+      // create paths
+      boxpoints.enter()
+          .append("path")
+          .attr("d", geopath)
+          .attr("class", "sensebox")
+          .attr("fill", "red")
+          .on("mouseover", function(d){
+            svg2.selectAll("*").remove();
+              d3.select(this).classed("sensebox hovered", true);
+              div.style("display", "inline")
+              div.text(d.properties.boxName); 
+              // create bars for the current sensebox, using the sensebox code as parameter
+              createbars(d.properties.boxId); 
+
+          })
+          .on("mouseout", function(d){
+
+              d3.select(this).classed("sensebox hovered", false);
+              div.style("display", "none"); 
+              // clear the content of the svg
+
+          }); 
+          
+
+
+          function createbars (boxId)
+          {
+
+              console.log("Current sensebox code: "+ boxId); 
+
+              var currentsensebox = new Object(); 
+            //  console.log(currentsensebox);
+              tempdataset.forEach(function(obj)
+              {
+             
+                if(obj.boxId == boxId)
+                {
+                  currentsensebox = obj; 
+                }
+
+              }); 
+
+              if(currentsensebox == undefined || currentsensebox == null || Object.keys(currentsensebox).length === 0)
+              {
+                console.log("No information available for this sensebox"); 
+                svg2.append("text").text("No information available for this sensebox"); 
+              }
+              else
+              {
+
+                console.log(currentsensebox); 
+
+              // retrieve information about the current sensebox
+              var dataitem = formatObject(currentsensebox);
+
+              console.log(dataitem[0][1]);
+
+              if(isNaN(dataitem[0][1]))
+              {
+                console.log("No information available for this sensebox"); 
+                svg2.append("text").text("No information available for this sensebox"); 
+              }
+              else{
+
+              console.log(dataitem)
+              //console.log(dataitem); 
+              var currentMinPop = d3.min(dataitem)[1]; 
+              var currentMaxPop = d3.max(dataitem)[1]; 
+
+              // creating scales and axes
+              var xScale = d3.scaleTime()
+                              .domain([new Date(2018,9, 22), new Date(2018, 9, 23)])
+                              .range([0, width2]);
+                              
+
+              var yScale = d3.scaleLinear()
+                              .domain([0, 26])
+                              .range([height2, 0]); 
+
+              var xAxis = d3.axisBottom(xScale)
+              .ticks(d3.timeHour.every(2))
+
+              var yAxis = d3.axisLeft(yScale)
+                            .tickValues([2,4,6,8,10,12,14,16,18,20,22,24,26]) // four values on the axis
+                           // .tickFormat(d3.formatPrefix(",.0", 1e3)) //format of values on the axis; 
+
+              // add axes to the svg element
+              svg2.append("g").call(xAxis).attr("transform", "translate (0, "+height2+")"); 
+              svg2.append("g").call(yAxis).attr("transform", "translate (0,0)"); 
+              // svg2.append("g").attr("class", "yAxis").call(yAxis).attr("transform", "translate ("+width2+" , 0)"); 
+
+var valueline = d3.line()
+    .x(function(d) { return xScale(d[0]); })
+    .y(function(d) { return yScale(d[1]); })
+
+  // Add the valueline path.
+  svg2.append("path")
+      .data([dataitem])
+      .attr("class", "line")
+      .attr("d", valueline);
+
+              }
+}
+
+          }
+
+           // go through the whole data item for a sensebox, and only keep the values from 
+          var formatObject = function (rawdataobject)
+          {
+          var formattedObject = new Array(); 
+
+          for (var key in rawdataobject)
+          {
+            // pick only values for some of the years
+            if (key == "temperatur_2018-10-22T00Z" || key == "temperatur_2018-10-22T02Z" || key == "temperatur_2018-10-22T04Z" || key == "temperatur_2018-10-22T06Z" || key == "temperatur_2018-10-22T08Z" ||
+            key == "temperatur_2018-10-22T10Z" || key == "temperatur_2018-10-22T12Z" || key == "temperatur_2018-10-22T14Z" || key == "temperatur_2018-10-22T16Z" || key == "temperatur_2018-10-22T18Z" ||
+            key == "temperatur_2018-10-22T20Z" || key == "temperatur_2018-10-22T22Z")
+            {
+              // remove spaces from the string, and convert it to Float
+              var value = parseFloat(rawdataobject[key].replace(/\s/g,''));
+             
+              switch (key.substring(22,24))
+              {
+                case "00": key= new Date(2018, 9, 22); break;
+                case "02": key= new Date(2018, 9, 22, 2); break;
+                case "04": key= new Date(2018, 9, 22, 4); break;
+                case "06": key= new Date(2018, 9, 22, 6); break;
+                case "08": key= new Date(2018, 9, 22, 8); break;
+                case "10": key= new Date(2018, 9, 22, 10); break;
+                case "12": key= new Date(2018, 9, 22, 12); break;
+                case "14": key= new Date(2018, 9, 22, 14); break;
+                case "16": key= new Date(2018, 9, 22, 16); break;
+                case "18": key= new Date(2018, 9, 22, 18); break;
+                case "20": key= new Date(2018, 9, 22, 20); break;
+                case "22": key= new Date(2018, 9, 22, 22); break;
+              }
+              var temp = new Array(key, value); 
+              
+              formattedObject.push(temp); 
+            }
+            else
+            {
+              continue; 
+            }
+
+              
+          }
+
+          return formattedObject; 
+        }
+
+
+
+ 
+    }), 
+
+    function(error)
+    {
+      console.log(error);
+
+    } 
+    
+   
+    
+/* 
+
+  // https://d3indepth.com/geographic/ [choice of right parameters for scaling]
+
+  // https://github.com/d3/d3-geo [path.centroid]
+
+  // DIV Formatting: https://stackoverflow.com/questions/8865458/vertically-center-text-with-css
+
+  // Legend: code taken, and slightly modified from https://bl.ocks.org/mbostock/3888852 
+
+  // Bubble map ideas adapted from https://bl.ocks.org/mbostock/9943478 
+
+  // Small entry on scaleSqrt() https://bl.ocks.org/d3indepth/775cf431e64b6718481c06fc45dc34f9
+
+  // d3 format: format numbers for human consumption https://github.com/d3/d3-format
+
+  
+ */
+    },
+
+
+    function (error)
+    {
+      console.log(error);
+    }
+  ); 
+  
+
+        </script>
+
+    </body>
+
+</html>
