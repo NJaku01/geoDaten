@@ -64,9 +64,8 @@ crossorigin=""></script>
 <script type="text/javascript">
 
  
- // Map of boxes in the world
+ // Map of boxes in Münster
 
-    // shapefiles were taken from https://www.naturalearthdata.com/downloads/
     // the conversion to topjson was done using https://mapshaper.org/
 
 // svg margin parameters
@@ -113,9 +112,8 @@ var geopath1 = d3.geoPath().projection(currentprojection);
 // format number for human consumption 
 var formatNumber = d3.format(",.0f");
 
-// Labels of the legend are the same as the domain of the color scale
 
-
+// Load the Data for the Background Map
 d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_nster_stadtteile.json")
   .then(
     function(dataset)
@@ -124,6 +122,7 @@ d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_ns
       console.log(dataset); 
       var city = topojson.feature(dataset, dataset.objects.shapefile_m_nster_stadtteile).features;
 
+	    // Display the background Map as SVG Path
       console.log(city);
       svg.append("path")
       .datum(topojson.feature(dataset, dataset.objects.shapefile_m_nster_stadtteile))
@@ -148,7 +147,7 @@ d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_ns
       var boxes = topojson.feature(dataset, dataset.objects.boxes).features;
       
       console.log(boxes);
-
+	    
       var centroids = boxes.map(function (feature){
           return geopath.centroid(feature);
       });
@@ -179,8 +178,8 @@ d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_ns
               d3.select(this).classed("sensebox hovered", true);
               div.style("display", "inline")
               div.text(d.properties.boxName); 
-              // create bars for the current sensebox, using the sensebox code as parameter
-              createbars(d.properties.boxId); 
+	      //create the line of the temperture
+              createline(d.properties.boxId); 
 
           })
           .on("mouseout", function(d){
@@ -193,13 +192,14 @@ d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_ns
           
 
 
-          function createbars (boxId)
+          function createline (boxId)
           {
 
               console.log("Current sensebox code: "+ boxId); 
 
               var currentsensebox = new Object(); 
             //  console.log(currentsensebox);
+		  //find the box which fits to the hovered one
               tempdataset.forEach(function(obj)
               {
              
@@ -258,7 +258,7 @@ d3.json("http://raw.githubusercontent.com/NJaku01/geoDaten/master/shapefile_m_ns
               svg2.append("g").call(xAxis).attr("transform", "translate (0, "+height2+")"); 
               svg2.append("g").call(yAxis).attr("transform", "translate (0,0)"); 
               // svg2.append("g").attr("class", "yAxis").call(yAxis).attr("transform", "translate ("+width2+" , 0)"); 
-
+//create the svg Line of the tempearture
 var valueline = d3.line()
     .x(function(d) { return xScale(d[0]); })
     .y(function(d) { return yScale(d[1]); })
@@ -281,7 +281,7 @@ var valueline = d3.line()
 
           for (var key in rawdataobject)
           {
-            // pick only values for some of the years
+            // pick only values for some of some hours
             if (key == "temperatur_2018-10-22T00Z" || key == "temperatur_2018-10-22T02Z" || key == "temperatur_2018-10-22T04Z" || key == "temperatur_2018-10-22T06Z" || key == "temperatur_2018-10-22T08Z" ||
             key == "temperatur_2018-10-22T10Z" || key == "temperatur_2018-10-22T12Z" || key == "temperatur_2018-10-22T14Z" || key == "temperatur_2018-10-22T16Z" || key == "temperatur_2018-10-22T18Z" ||
             key == "temperatur_2018-10-22T20Z" || key == "temperatur_2018-10-22T22Z")
@@ -289,6 +289,7 @@ var valueline = d3.line()
               // remove spaces from the string, and convert it to Float
               var value = parseFloat(rawdataobject[key].replace(/\s/g,''));
              
+		    /transform the string time to Date values
               switch (key.substring(22,24))
               {
                 case "00": key= new Date(2018, 9, 22); break;
